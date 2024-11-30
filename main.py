@@ -100,13 +100,16 @@ def main(config):
         flops = model.flops()
         logger.info(f"number of GFLOPs: {flops / 1e9}")
 
-    model.cuda()
+    #model.cuda()
+    device = torch.device("cpu")
+    model.to(device)
     model_without_ddp = model
 
     optimizer = build_optimizer(config, model)
-    model = torch.nn.parallel.DistributedDataParallel(model, device_ids=[config.LOCAL_RANK], broadcast_buffers=False)
-    loss_scaler = NativeScalerWithGradNormCount()
-
+    #model = torch.nn.parallel.DistributedDataParallel(model, device_ids=[config.LOCAL_RANK], broadcast_buffers=False)
+    #model_without_ddp = model  # No need for DistributedDataParallel
+    #loss_scaler = NativeScalerWithGradNormCount()
+    loss_scaler = None  # Placeholder since gradient scaling is not needed
     if config.TRAIN.ACCUMULATION_STEPS > 1:
         lr_scheduler = build_scheduler(config, optimizer, len(data_loader_train) // config.TRAIN.ACCUMULATION_STEPS)
     else:
@@ -184,9 +187,10 @@ def train_one_epoch(config, model, criterion, data_loader, optimizer, epoch, mix
     start = time.time()
     end = time.time()
     for idx, (samples, targets) in enumerate(data_loader):
-        samples = samples.cuda(non_blocking=True)
-        targets = targets.cuda(non_blocking=True)
-
+        #samples = samples.cuda(non_blocking=True)
+        #targets = targets.cuda(non_blocking=True)
+        samples = samples.to(device)
+        targets = targets.to(device)
         if mixup_fn is not None:
             samples, targets = mixup_fn(samples, targets)
 
@@ -197,20 +201,25 @@ def train_one_epoch(config, model, criterion, data_loader, optimizer, epoch, mix
 
         # this attribute is added by timm on one optimizer (adahessian)
         is_second_order = hasattr(optimizer, 'is_second_order') and optimizer.is_second_order
+        '''
         grad_norm = loss_scaler(loss, optimizer, clip_grad=config.TRAIN.CLIP_GRAD,
                                 parameters=model.parameters(), create_graph=is_second_order,
                                 update_grad=(idx + 1) % config.TRAIN.ACCUMULATION_STEPS == 0)
+        '''
         if (idx + 1) % config.TRAIN.ACCUMULATION_STEPS == 0:
             optimizer.zero_grad()
             lr_scheduler.step_update((epoch * num_steps + idx) // config.TRAIN.ACCUMULATION_STEPS)
         loss_scale_value = loss_scaler.state_dict()["scale"]
 
-        torch.cuda.synchronize()
+        #torch.cuda.synchronize()
+        
 
         loss_meter.update(loss.item(), targets.size(0))
+        '''
         if grad_norm is not None:  # loss_scaler return None if not update
             norm_meter.update(grad_norm)
         scaler_meter.update(loss_scale_value)
+        '''
         batch_time.update(time.time() - end)
         end = time.time()
 
@@ -304,29 +313,32 @@ if __name__ == '__main__':
 
     if config.AMP_OPT_LEVEL:
         print("[warning] Apex amp has been deprecated, please use pytorch amp instead!")
-
+    '''
     if 'RANK' in os.environ and 'WORLD_SIZE' in os.environ:
         rank = int(os.environ["RANK"])
         world_size = int(os.environ['WORLD_SIZE'])
         print(f"RANK and WORLD_SIZE in environ: {rank}/{world_size}")
     else:
-        rank = -1
-        world_size = -1
-    torch.cuda.set_device(config.LOCAL_RANK)
-    torch.distributed.init_process_group(backend='nccl', init_method='env://', world_size=world_size, rank=rank)
-    torch.distributed.barrier()
+    '''
+    rank = -1
+    world_size = -1
+    #torch.cuda.set_device(config.LOCAL_RANK)
+    #torch.distributed.init_process_group(backend='nccl', init_method='env://', world_size=world_size, rank=rank)
+    #torch.distributed.barrier()
 
-    seed = config.SEED + dist.get_rank()
+    seed = config.SEED
     torch.manual_seed(seed)
-    torch.cuda.manual_seed(seed)
+    #torch.cuda.manual_seed(seed)
     np.random.seed(seed)
     random.seed(seed)
-    cudnn.benchmark = True
-
+    #cudnn.benchmark = True
+    
     # linear scale the learning rate according to total batch size, may not be optimal
-    linear_scaled_lr = config.TRAIN.BASE_LR * config.DATA.BATCH_SIZE * dist.get_world_size() / 512.0
-    linear_scaled_warmup_lr = config.TRAIN.WARMUP_LR * config.DATA.BATCH_SIZE * dist.get_world_size() / 512.0
-    linear_scaled_min_lr = config.TRAIN.MIN_LR * config.DATA.BATCH_SIZE * dist.get_world_size() / 512.0
+    # For single-device training, set world_size to 1
+    world_size = 1
+    linear_scaled_lr = config.TRAIN.BASE_LR * config.DATA.BATCH_SIZE * world_size / 512.0
+    linear_scaled_warmup_lr = config.TRAIN.WARMUP_LR * config.DATA.BATCH_SIZE * world_size / 512.0
+    linear_scaled_min_lr = config.TRAIN.MIN_LR * config.DATA.BATCH_SIZE * world_size / 512.0
     # gradient accumulation also need to scale the learning rate
     if config.TRAIN.ACCUMULATION_STEPS > 1:
         linear_scaled_lr = linear_scaled_lr * config.TRAIN.ACCUMULATION_STEPS
@@ -336,17 +348,18 @@ if __name__ == '__main__':
     config.TRAIN.BASE_LR = linear_scaled_lr
     config.TRAIN.WARMUP_LR = linear_scaled_warmup_lr
     config.TRAIN.MIN_LR = linear_scaled_min_lr
+    #config.freeze()
+    config.AMP_ENABLE = False
     config.freeze()
-
     os.makedirs(config.OUTPUT, exist_ok=True)
-    logger = create_logger(output_dir=config.OUTPUT, dist_rank=dist.get_rank(), name=f"{config.MODEL.NAME}")
-
+    logger = create_logger(output_dir=config.OUTPUT, name=f"{config.MODEL.NAME}")
+    '''
     if dist.get_rank() == 0:
         path = os.path.join(config.OUTPUT, "config.json")
         with open(path, "w") as f:
             f.write(config.dump())
         logger.info(f"Full config saved to {path}")
-
+    '''
     # print config
     logger.info(config.dump())
     logger.info(json.dumps(vars(args)))

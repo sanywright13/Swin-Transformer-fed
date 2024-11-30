@@ -338,11 +338,10 @@ def update_config(config, args):
         config.TRAIN.OPTIMIZER.NAME = args.optim
 
     # set local rank for distributed training
-    if PYTORCH_MAJOR_VERSION == 1:
-        config.LOCAL_RANK = args.local_rank
-    else:
-        config.LOCAL_RANK = int(os.environ['LOCAL_RANK'])
-
+    #if PYTORCH_MAJOR_VERSION == 1:
+    #    config.LOCAL_RANK = args.local_rank
+    #else:
+    config.LOCAL_RANK = int(os.environ.get('LOCAL_RANK', 0))
     # output folder
     config.OUTPUT = os.path.join(config.OUTPUT, config.MODEL.NAME, config.TAG)
 
