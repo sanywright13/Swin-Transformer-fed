@@ -121,26 +121,26 @@ class DatasetFolder(data.Dataset):
             self.init_cache()
 
     def init_cache(self):
-        assert self.cache_mode in ["part", "full"]
-        n_sample = len(self.samples)
-        global_rank = dist.get_rank()
-        world_size = dist.get_world_size()
+      assert self.cache_mode in ["part", "full"]
+      n_sample = len(self.samples)
+      global_rank = 0  # Default to single rank for CPU
+      world_size = 1   # Single process for CPU training
 
-        samples_bytes = [None for _ in range(n_sample)]
-        start_time = time.time()
-        for index in range(n_sample):
-            if index % (n_sample // 10) == 0:
-                t = time.time() - start_time
-                print(f'global_rank {dist.get_rank()} cached {index}/{n_sample} takes {t:.2f}s per block')
-                start_time = time.time()
-            path, target = self.samples[index]
-            if self.cache_mode == "full":
-                samples_bytes[index] = (ZipReader.read(path), target)
-            elif self.cache_mode == "part" and index % world_size == global_rank:
-                samples_bytes[index] = (ZipReader.read(path), target)
-            else:
-                samples_bytes[index] = (path, target)
-        self.samples = samples_bytes
+      samples_bytes = [None for _ in range(n_sample)]
+      start_time = time.time()
+      for index in range(n_sample):
+        if index % (n_sample // 10) == 0:
+            t = time.time() - start_time
+            print(f'cached {index}/{n_sample} takes {t:.2f}s per block')
+            start_time = time.time()
+        path, target = self.samples[index]
+        if self.cache_mode == "full":
+            samples_bytes[index] = (ZipReader.read(path), target)
+        elif self.cache_mode == "part" and index % world_size == global_rank:
+            samples_bytes[index] = (ZipReader.read(path), target)
+        else:
+            samples_bytes[index] = (path, target)
+      self.samples = samples_bytes
 
     def __getitem__(self, index):
         """
