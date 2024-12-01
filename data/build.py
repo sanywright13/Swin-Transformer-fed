@@ -13,7 +13,7 @@ from torchvision import datasets, transforms
 from timm.data.constants import IMAGENET_DEFAULT_MEAN, IMAGENET_DEFAULT_STD
 from timm.data import Mixup
 from timm.data import create_transform
-
+from torch.utils.data import DataLoader, RandomSampler
 from .cached_image_folder import CachedImageFolder
 from .imagenet22k_dataset import IN22KDATASET
 from .samplers import SubsetRandomSampler
@@ -44,27 +44,28 @@ except:
 def build_loader(config):
     config.defrost()
     dataset_train, config.MODEL.NUM_CLASSES = build_dataset(is_train=True, config=config)
+    # Get a sample from the dataset (assuming dataset_train is an instance of a Dataset class)
+    sample, label = dataset_train[0]  # Access the first sample and label
+
+    # Print the shape and number of channels
+    print(f"Sample shape: {sample.shape}")  # Shape of the image tensor
+    print(f"Number of channels: {sample.shape[0]}")  # Channels are represented by the first dimension (C, H, W)
+
     config.freeze()
-    print(f"local rank {config.LOCAL_RANK} / global rank {dist.get_rank()} successfully build train dataset")
+    #global_rank = 0 if not torch.distributed.is_initialized() else torch.distributed.get_rank()
+    #print(f"local rank {config.LOCAL_RANK} / global rank {dist.get_rank()} successfully build train dataset")
     dataset_val, _ = build_dataset(is_train=False, config=config)
-    print(f"local rank {config.LOCAL_RANK} / global rank {dist.get_rank()} successfully build val dataset")
+    
+    #print(f"local rank {config.LOCAL_RANK} / global rank {dist.get_rank()} successfully build val dataset")
 
-    num_tasks = dist.get_world_size()
-    global_rank = dist.get_rank()
-    if config.DATA.ZIP_MODE and config.DATA.CACHE_MODE == 'part':
-        indices = np.arange(dist.get_rank(), len(dataset_train), dist.get_world_size())
-        sampler_train = SubsetRandomSampler(indices)
-    else:
-        sampler_train = torch.utils.data.DistributedSampler(
-            dataset_train, num_replicas=num_tasks, rank=global_rank, shuffle=True
-        )
+    #num_tasks = dist.get_world_size()
+    #global_rank = dist.get_rank()
+  
 
-    if config.TEST.SEQUENTIAL:
-        sampler_val = torch.utils.data.SequentialSampler(dataset_val)
-    else:
-        sampler_val = torch.utils.data.distributed.DistributedSampler(
-            dataset_val, shuffle=config.TEST.SHUFFLE
-        )
+    # Remove distributed training setup and use default sampler
+    sampler_train = torch.utils.data.RandomSampler(dataset_train)
+    
+    sampler_val = torch.utils.data.SequentialSampler(dataset_val)
 
     data_loader_train = torch.utils.data.DataLoader(
         dataset_train, sampler=sampler_train,
@@ -97,6 +98,7 @@ def build_loader(config):
 
 def build_dataset(is_train, config):
     transform = build_transform(is_train, config)
+    print(f'gggg {transform}')
     if config.DATA.DATASET == 'imagenet':
         prefix = 'train' if is_train else 'val'
         if config.DATA.ZIP_MODE:
@@ -124,6 +126,7 @@ def build_dataset(is_train, config):
 
 def build_transform(is_train, config):
     resize_im = config.DATA.IMG_SIZE > 32
+    print(f'resize_im : {resize_im}')
     if is_train:
         # this should always dispatch to transforms_imagenet_train
         transform = create_transform(
@@ -136,6 +139,8 @@ def build_transform(is_train, config):
             re_count=config.AUG.RECOUNT,
             interpolation=config.DATA.INTERPOLATION,
         )
+        #print(f"Transformed image shape: {transform.shape}")
+
         if not resize_im:
             # replace RandomResizedCropAndInterpolation with
             # RandomCrop
@@ -158,5 +163,12 @@ def build_transform(is_train, config):
             )
 
     t.append(transforms.ToTensor())
-    t.append(transforms.Normalize(IMAGENET_DEFAULT_MEAN, IMAGENET_DEFAULT_STD))
+    # Check dimensionality after transformation
+    def check_dim(img):
+        print(f"Image shape after transform: {img.shape}")  # Print shape
+        return img
+    
+    t.append(check_dim)
+    #t.append(transforms.Normalize(IMAGENET_DEFAULT_MEAN, IMAGENET_DEFAULT_STD))
+    #t.append(transforms.Normalize([0.5], [0.5]))  # For grayscale data
     return transforms.Compose(t)

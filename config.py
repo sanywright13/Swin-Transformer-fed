@@ -29,7 +29,7 @@ _C.DATA.DATA_PATH = ''
 # Dataset name
 _C.DATA.DATASET = 'imagenet'
 # Input image size
-_C.DATA.IMG_SIZE = 224
+_C.DATA.IMG_SIZE = 28
 # Interpolation to resize image (random, bilinear, bicubic)
 _C.DATA.INTERPOLATION = 'bicubic'
 # Use zipped dataset instead of folder dataset
@@ -40,7 +40,7 @@ _C.DATA.CACHE_MODE = 'part'
 # Pin CPU memory in DataLoader for more efficient (sometimes) transfer to GPU.
 _C.DATA.PIN_MEMORY = True
 # Number of data loading threads
-_C.DATA.NUM_WORKERS = 8
+_C.DATA.NUM_WORKERS = 1
 
 # [SimMIM] Mask patch size for MaskGenerator
 _C.DATA.MASK_PATCH_SIZE = 32
@@ -61,7 +61,7 @@ _C.MODEL.PRETRAINED = ''
 # Checkpoint to resume, could be overwritten by command line argument
 _C.MODEL.RESUME = ''
 # Number of classes, overwritten in data preparation
-_C.MODEL.NUM_CLASSES = 1000
+_C.MODEL.NUM_CLASSES = 2
 # Dropout rate
 _C.MODEL.DROP_RATE = 0.0
 # Drop path rate
@@ -71,8 +71,8 @@ _C.MODEL.LABEL_SMOOTHING = 0.1
 
 # Swin Transformer parameters
 _C.MODEL.SWIN = CN()
-_C.MODEL.SWIN.PATCH_SIZE = 4
-_C.MODEL.SWIN.IN_CHANS = 3
+_C.MODEL.SWIN.PATCH_SIZE = 2
+_C.MODEL.SWIN.IN_CHANS = 1
 _C.MODEL.SWIN.EMBED_DIM = 96
 _C.MODEL.SWIN.DEPTHS = [2, 2, 6, 2]
 _C.MODEL.SWIN.NUM_HEADS = [3, 6, 12, 24]
@@ -85,8 +85,8 @@ _C.MODEL.SWIN.PATCH_NORM = True
 
 # Swin Transformer V2 parameters
 _C.MODEL.SWINV2 = CN()
-_C.MODEL.SWINV2.PATCH_SIZE = 4
-_C.MODEL.SWINV2.IN_CHANS = 3
+_C.MODEL.SWINV2.PATCH_SIZE = 2
+_C.MODEL.SWINV2.IN_CHANS = 1
 _C.MODEL.SWINV2.EMBED_DIM = 96
 _C.MODEL.SWINV2.DEPTHS = [2, 2, 6, 2]
 _C.MODEL.SWINV2.NUM_HEADS = [3, 6, 12, 24]
@@ -99,8 +99,8 @@ _C.MODEL.SWINV2.PRETRAINED_WINDOW_SIZES = [0, 0, 0, 0]
 
 # Swin Transformer MoE parameters
 _C.MODEL.SWIN_MOE = CN()
-_C.MODEL.SWIN_MOE.PATCH_SIZE = 4
-_C.MODEL.SWIN_MOE.IN_CHANS = 3
+_C.MODEL.SWIN_MOE.PATCH_SIZE = 2
+_C.MODEL.SWIN_MOE.IN_CHANS = 1
 _C.MODEL.SWIN_MOE.EMBED_DIM = 96
 _C.MODEL.SWIN_MOE.DEPTHS = [2, 2, 6, 2]
 _C.MODEL.SWIN_MOE.NUM_HEADS = [3, 6, 12, 24]
@@ -129,8 +129,8 @@ _C.MODEL.SWIN_MOE.AUX_LOSS_WEIGHT = 0.01
 
 # Swin MLP parameters
 _C.MODEL.SWIN_MLP = CN()
-_C.MODEL.SWIN_MLP.PATCH_SIZE = 4
-_C.MODEL.SWIN_MLP.IN_CHANS = 3
+_C.MODEL.SWIN_MLP.PATCH_SIZE = 2
+_C.MODEL.SWIN_MLP.IN_CHANS = 1
 _C.MODEL.SWIN_MLP.EMBED_DIM = 96
 _C.MODEL.SWIN_MLP.DEPTHS = [2, 2, 6, 2]
 _C.MODEL.SWIN_MLP.NUM_HEADS = [3, 6, 12, 24]

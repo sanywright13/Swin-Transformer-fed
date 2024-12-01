@@ -232,6 +232,8 @@ class CachedImageFolder(DatasetFolder):
                                                 transform=transform, target_transform=target_transform,
                                                 cache_mode=cache_mode)
         self.imgs = self.samples
+        # Print the shape and number of channels
+        print(f"Transformed image shape: {self.imgs[0]}")
 
     def __getitem__(self, index):
         """
@@ -248,5 +250,8 @@ class CachedImageFolder(DatasetFolder):
             img = image
         if self.target_transform is not None:
             target = self.target_transform(target)
+        # Print the shape and number of channels
+        #print(f"Transformed image shape: {img.shape}")
+        #print(f"Number of channels: {img.shape[0]}")  # img.shape[0] is the number of channels
 
         return img, target

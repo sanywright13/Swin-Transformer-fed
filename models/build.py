@@ -32,6 +32,7 @@ def build_model(config, is_pretrain=False):
         return model
 
     if model_type == 'swin':
+        print(f"Image size: {config.DATA.IMG_SIZE}, Patch size: {config.MODEL.SWIN.PATCH_SIZE}")
         model = SwinTransformer(img_size=config.DATA.IMG_SIZE,
                                 patch_size=config.MODEL.SWIN.PATCH_SIZE,
                                 in_chans=config.MODEL.SWIN.IN_CHANS,

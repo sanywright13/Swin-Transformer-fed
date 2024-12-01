@@ -156,9 +156,9 @@ def main(config):
     logger.info("Start training")
     start_time = time.time()
     for epoch in range(config.TRAIN.START_EPOCH, config.TRAIN.EPOCHS):
-        data_loader_train.sampler.set_epoch(epoch)
+        #data_loader_train.sampler.set_epoch(epoch)
 
-        train_one_epoch(config, model, criterion, data_loader_train, optimizer, epoch, mixup_fn, lr_scheduler,
+        train_one_epoch(device,config, model, criterion, data_loader_train, optimizer, epoch, mixup_fn, lr_scheduler,
                         loss_scaler)
         if dist.get_rank() == 0 and (epoch % config.SAVE_FREQ == 0 or epoch == (config.TRAIN.EPOCHS - 1)):
             save_checkpoint(config, epoch, model_without_ddp, max_accuracy, optimizer, lr_scheduler, loss_scaler,
@@ -174,7 +174,7 @@ def main(config):
     logger.info('Training time {}'.format(total_time_str))
 
 
-def train_one_epoch(config, model, criterion, data_loader, optimizer, epoch, mixup_fn, lr_scheduler, loss_scaler):
+def train_one_epoch(device,config, model, criterion, data_loader, optimizer, epoch, mixup_fn, lr_scheduler, loss_scaler):
     model.train()
     optimizer.zero_grad()
 
@@ -191,11 +191,17 @@ def train_one_epoch(config, model, criterion, data_loader, optimizer, epoch, mix
         #targets = targets.cuda(non_blocking=True)
         samples = samples.to(device)
         targets = targets.to(device)
+        '''
         if mixup_fn is not None:
-            samples, targets = mixup_fn(samples, targets)
+                # Ensure that samples and targets are on CPU
+                samples = samples.to('cpu')
+                targets = targets.to('cpu')
+                samples, targets = mixup_fn(samples.to(device), targets.to(device))
 
-        with torch.cuda.amp.autocast(enabled=config.AMP_ENABLE):
-            outputs = model(samples)
+        '''
+        #with torch.cuda.amp.autocast(enabled=config.AMP_ENABLE):
+        print(f'samples shape : {samples.shape}')  # Should output: [batch_size, 1, 28, 28]
+        outputs = model(samples)
         loss = criterion(outputs, targets)
         loss = loss / config.TRAIN.ACCUMULATION_STEPS
 
