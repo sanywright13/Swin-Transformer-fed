@@ -213,7 +213,7 @@ def train_one_epoch(device,config, model, criterion, data_loader, optimizer, epo
         #print(f'output shape {outputs}')
 
         loss = criterion(outputs, targets)
-        loss = loss / config.TRAIN.ACCUMULATION_STEPS
+        #loss = loss / config.TRAIN.ACCUMULATION_STEPS
         '''
         for name, param in model.named_parameters():
           if param.requires_grad:
@@ -234,14 +234,21 @@ def train_one_epoch(device,config, model, criterion, data_loader, optimizer, epo
         '''
         #torch.cuda.synchronize()
         
-
+       
         loss_meter.update(loss.item(), targets.size(0))
+        # Backward pass
+        optimizer.zero_grad()  # Clear gradients from previous step
+        loss.backward()  # Compute gradients
+        
+        # Update weights
+        optimizer.step()  # Apply gradients to update weights
         '''
         if grad_norm is not None:  # loss_scaler return None if not update
             norm_meter.update(grad_norm)
         scaler_meter.update(loss_scale_value)
         '''
         batch_time.update(time.time() - end)
+        acc = (outputs.argmax(dim=1) == targets).float().mean()
         end = time.time()
 
         if idx % config.PRINT_FREQ == 0:
@@ -254,9 +261,9 @@ def train_one_epoch(device,config, model, criterion, data_loader, optimizer, epo
                 f'eta {datetime.timedelta(seconds=int(etas))} lr {lr:.6f}\t wd {wd:.4f}\t'
                 f'time {batch_time.val:.4f} ({batch_time.avg:.4f})\t'
                 f'loss {loss_meter.val:.4f} ({loss_meter.avg:.4f})\t'
-                f'grad_norm {norm_meter.val:.4f} ({norm_meter.avg:.4f})\t'
+                f'grad_norm {norm_meter.val:.6f} ({norm_meter.avg:.4f})\t'
                 f'loss_scale {scaler_meter.val:.4f} ({scaler_meter.avg:.4f})\t'
-                f'mem {memory_used:.0f}MB')
+                f'accuracy training {acc:.3f}')
     epoch_time = time.time() - start
     logger.info(f"EPOCH {epoch} training takes {datetime.timedelta(seconds=int(epoch_time))}")
 
@@ -271,6 +278,7 @@ def validate(device,config, data_loader, model):
     acc1_meter = AverageMeter()
     acc5_meter = AverageMeter()
 
+
     end = time.time()
     for idx, (images, target) in enumerate(data_loader):
         #images = images.cuda(non_blocking=True)
@@ -284,15 +292,18 @@ def validate(device,config, data_loader, model):
         # measure accuracy and record loss
         loss = criterion(output, target)
         acc1, acc5 = accuracy(output, target, topk=(1,1))
+        acc = (output.argmax(dim=1) == target).float().mean()
 
         #acc1 = reduce_tensor(acc1)
         #acc5 = reduce_tensor(acc5)
         #loss = reduce_tensor(loss)
 
         loss_meter.update(loss.item(), target.size(0))
-        acc1_meter.update(acc1.item(), target.size(0))
+        acc1_meter.update(acc.item(), target.size(0))
         acc5_meter.update(acc5.item(), target.size(0))
-
+        #print(f'target : {target}')
+        #print(f'output : {output}')
+        
         # measure elapsed time
         batch_time.update(time.time() - end)
         end = time.time()
@@ -307,7 +318,7 @@ def validate(device,config, data_loader, model):
                 f'Acc@5 {acc5_meter.val:.3f} ({acc5_meter.avg:.3f})\t'
                 f'Mem {memory_used:.0f}MB')
         '''
-    logger.info(f' * Acc@1 {acc1_meter.avg:.3f} Acc@5 {acc5_meter.avg:.3f}')
+    logger.info(f' * Accuracy validation@ {acc1_meter.avg:.3f} ')
     return acc1_meter.avg, acc5_meter.avg, loss_meter.avg
 
 
