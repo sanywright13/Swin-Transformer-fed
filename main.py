@@ -92,7 +92,7 @@ def main(config):
 
     logger.info(f"Creating model:{config.MODEL.TYPE}/{config.MODEL.NAME}")
     model = build_model(config)
-    logger.info(str(model))
+    #logger.info(str(model))
 
     n_parameters = sum(p.numel() for p in model.parameters() if p.requires_grad)
     logger.info(f"number of params: {n_parameters}")
@@ -157,14 +157,15 @@ def main(config):
     start_time = time.time()
     for epoch in range(config.TRAIN.START_EPOCH, config.TRAIN.EPOCHS):
         #data_loader_train.sampler.set_epoch(epoch)
+        #logger.info(f'config : {config}, ignoring auto resume')
 
         train_one_epoch(device,config, model, criterion, data_loader_train, optimizer, epoch, mixup_fn, lr_scheduler,
                         loss_scaler)
-        if dist.get_rank() == 0 and (epoch % config.SAVE_FREQ == 0 or epoch == (config.TRAIN.EPOCHS - 1)):
-            save_checkpoint(config, epoch, model_without_ddp, max_accuracy, optimizer, lr_scheduler, loss_scaler,
-                            logger)
+        #if dist.get_rank() == 0 and (epoch % config.SAVE_FREQ == 0 or epoch == (config.TRAIN.EPOCHS - 1)):
+        #save_checkpoint(config, epoch, model_without_ddp, max_accuracy, optimizer, lr_scheduler, loss_meter,
+                            #logger)
 
-        acc1, acc5, loss = validate(config, data_loader_val, model)
+        acc1, acc5, loss = validate(device,config, data_loader_val, model)
         logger.info(f"Accuracy of the network on the {len(dataset_val)} test images: {acc1:.1f}%")
         max_accuracy = max(max_accuracy, acc1)
         logger.info(f'Max accuracy: {max_accuracy:.2f}%')
@@ -177,13 +178,13 @@ def main(config):
 def train_one_epoch(device,config, model, criterion, data_loader, optimizer, epoch, mixup_fn, lr_scheduler, loss_scaler):
     model.train()
     optimizer.zero_grad()
-
+    
     num_steps = len(data_loader)
     batch_time = AverageMeter()
     loss_meter = AverageMeter()
     norm_meter = AverageMeter()
     scaler_meter = AverageMeter()
-
+    
     start = time.time()
     end = time.time()
     for idx, (samples, targets) in enumerate(data_loader):
@@ -191,6 +192,13 @@ def train_one_epoch(device,config, model, criterion, data_loader, optimizer, epo
         #targets = targets.cuda(non_blocking=True)
         samples = samples.to(device)
         targets = targets.to(device)
+        #targets=targets.view(-1, 1)
+        targets = targets.unsqueeze(dim=-1)
+        #targets = targets.view(-1)  # This will reshape the target tensor to shape (16,)
+        #targets = torch.argmax(targets, dim=1)  # Convert to class indices (shape: (16,))
+        #print(f'target shape {targets.shape}')
+        #print(f'target  {targets}')
+
         '''
         if mixup_fn is not None:
                 # Ensure that samples and targets are on CPU
@@ -200,23 +208,30 @@ def train_one_epoch(device,config, model, criterion, data_loader, optimizer, epo
 
         '''
         #with torch.cuda.amp.autocast(enabled=config.AMP_ENABLE):
-        print(f'samples shape : {samples.shape}')  # Should output: [batch_size, 1, 28, 28]
+        #print(f'samples shape : {samples.shape}')  # Should output: [batch_size, 1, 28, 28]
         outputs = model(samples)
+        #print(f'output shape {outputs}')
+
         loss = criterion(outputs, targets)
         loss = loss / config.TRAIN.ACCUMULATION_STEPS
-
+        '''
+        for name, param in model.named_parameters():
+          if param.requires_grad:
+             print (name, param.data)
+        print('dooooooooooooooooooooone')
+        '''
         # this attribute is added by timm on one optimizer (adahessian)
         is_second_order = hasattr(optimizer, 'is_second_order') and optimizer.is_second_order
         '''
         grad_norm = loss_scaler(loss, optimizer, clip_grad=config.TRAIN.CLIP_GRAD,
                                 parameters=model.parameters(), create_graph=is_second_order,
                                 update_grad=(idx + 1) % config.TRAIN.ACCUMULATION_STEPS == 0)
-        '''
+        
         if (idx + 1) % config.TRAIN.ACCUMULATION_STEPS == 0:
             optimizer.zero_grad()
             lr_scheduler.step_update((epoch * num_steps + idx) // config.TRAIN.ACCUMULATION_STEPS)
         loss_scale_value = loss_scaler.state_dict()["scale"]
-
+        '''
         #torch.cuda.synchronize()
         
 
@@ -247,7 +262,7 @@ def train_one_epoch(device,config, model, criterion, data_loader, optimizer, epo
 
 
 @torch.no_grad()
-def validate(config, data_loader, model):
+def validate(device,config, data_loader, model):
     criterion = torch.nn.CrossEntropyLoss()
     model.eval()
 
@@ -258,20 +273,21 @@ def validate(config, data_loader, model):
 
     end = time.time()
     for idx, (images, target) in enumerate(data_loader):
-        images = images.cuda(non_blocking=True)
-        target = target.cuda(non_blocking=True)
-
+        #images = images.cuda(non_blocking=True)
+        #target = target.cuda(non_blocking=True)
+        images = images.to(device)
+        target = target.to(device)
         # compute output
-        with torch.cuda.amp.autocast(enabled=config.AMP_ENABLE):
-            output = model(images)
-
+        #with torch.cuda.amp.autocast(enabled=config.AMP_ENABLE):
+        output = model(images)
+        
         # measure accuracy and record loss
         loss = criterion(output, target)
-        acc1, acc5 = accuracy(output, target, topk=(1, 5))
+        acc1, acc5 = accuracy(output, target, topk=(1,1))
 
-        acc1 = reduce_tensor(acc1)
-        acc5 = reduce_tensor(acc5)
-        loss = reduce_tensor(loss)
+        #acc1 = reduce_tensor(acc1)
+        #acc5 = reduce_tensor(acc5)
+        #loss = reduce_tensor(loss)
 
         loss_meter.update(loss.item(), target.size(0))
         acc1_meter.update(acc1.item(), target.size(0))
@@ -280,7 +296,7 @@ def validate(config, data_loader, model):
         # measure elapsed time
         batch_time.update(time.time() - end)
         end = time.time()
-
+        '''
         if idx % config.PRINT_FREQ == 0:
             memory_used = torch.cuda.max_memory_allocated() / (1024.0 * 1024.0)
             logger.info(
@@ -290,6 +306,7 @@ def validate(config, data_loader, model):
                 f'Acc@1 {acc1_meter.val:.3f} ({acc1_meter.avg:.3f})\t'
                 f'Acc@5 {acc5_meter.val:.3f} ({acc5_meter.avg:.3f})\t'
                 f'Mem {memory_used:.0f}MB')
+        '''
     logger.info(f' * Acc@1 {acc1_meter.avg:.3f} Acc@5 {acc5_meter.avg:.3f}')
     return acc1_meter.avg, acc5_meter.avg, loss_meter.avg
 

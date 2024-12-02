@@ -67,7 +67,7 @@ _C.MODEL.DROP_RATE = 0.0
 # Drop path rate
 _C.MODEL.DROP_PATH_RATE = 0.1
 # Label Smoothing
-_C.MODEL.LABEL_SMOOTHING = 0.1
+_C.MODEL.LABEL_SMOOTHING = 0.0
 
 # Swin Transformer parameters
 _C.MODEL.SWIN = CN()
@@ -150,12 +150,12 @@ _C.MODEL.SIMMIM.NORM_TARGET.PATCH_SIZE = 47
 # -----------------------------------------------------------------------------
 _C.TRAIN = CN()
 _C.TRAIN.START_EPOCH = 0
-_C.TRAIN.EPOCHS = 300
+_C.TRAIN.EPOCHS = 50
 _C.TRAIN.WARMUP_EPOCHS = 20
-_C.TRAIN.WEIGHT_DECAY = 0.05
-_C.TRAIN.BASE_LR = 5e-4
-_C.TRAIN.WARMUP_LR = 5e-7
-_C.TRAIN.MIN_LR = 5e-6
+_C.TRAIN.WEIGHT_DECAY =1e-4
+_C.TRAIN.BASE_LR = 0.00013914064388085564
+_C.TRAIN.WARMUP_LR = 0.00013914064388085564
+_C.TRAIN.MIN_LR = 0.00013914064388085564
 # Clip gradient norm
 _C.TRAIN.CLIP_GRAD = 5.0
 # Auto resume from latest checkpoint

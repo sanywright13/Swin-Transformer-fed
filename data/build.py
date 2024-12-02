@@ -17,7 +17,7 @@ from torch.utils.data import DataLoader, RandomSampler
 from .cached_image_folder import CachedImageFolder
 from .imagenet22k_dataset import IN22KDATASET
 from .samplers import SubsetRandomSampler
-
+import torchvision.transforms as transforms
 try:
     from torchvision.transforms import InterpolationMode
 
@@ -44,12 +44,13 @@ except:
 def build_loader(config):
     config.defrost()
     dataset_train, config.MODEL.NUM_CLASSES = build_dataset(is_train=True, config=config)
+    config.MODEL.NUM_CLASSES=2
     # Get a sample from the dataset (assuming dataset_train is an instance of a Dataset class)
     sample, label = dataset_train[0]  # Access the first sample and label
 
     # Print the shape and number of channels
-    print(f"Sample shape: {sample.shape}")  # Shape of the image tensor
-    print(f"Number of channels: {sample.shape[0]}")  # Channels are represented by the first dimension (C, H, W)
+    #print(f"Sample shape: {sample.shape}")  # Shape of the image tensor
+    #print(f"Number of channels: {sample.shape[0]}")  # Channels are represented by the first dimension (C, H, W)
 
     config.freeze()
     #global_rank = 0 if not torch.distributed.is_initialized() else torch.distributed.get_rank()
@@ -98,7 +99,7 @@ def build_loader(config):
 
 def build_dataset(is_train, config):
     transform = build_transform(is_train, config)
-    print(f'gggg {transform}')
+    #print(f'gggg {transform}')
     if config.DATA.DATASET == 'imagenet':
         prefix = 'train' if is_train else 'val'
         if config.DATA.ZIP_MODE:
@@ -126,9 +127,10 @@ def build_dataset(is_train, config):
 
 def build_transform(is_train, config):
     resize_im = config.DATA.IMG_SIZE > 32
-    print(f'resize_im : {resize_im}')
-    if is_train:
+    #print(f'resize_im : {resize_im}')
+    #if is_train:
         # this should always dispatch to transforms_imagenet_train
+    '''
         transform = create_transform(
             input_size=config.DATA.IMG_SIZE,
             is_training=True,
@@ -139,15 +141,15 @@ def build_transform(is_train, config):
             re_count=config.AUG.RECOUNT,
             interpolation=config.DATA.INTERPOLATION,
         )
+  '''
+    t = []
         #print(f"Transformed image shape: {transform.shape}")
 
-        if not resize_im:
+        #if not resize_im:
             # replace RandomResizedCropAndInterpolation with
             # RandomCrop
-            transform.transforms[0] = transforms.RandomCrop(config.DATA.IMG_SIZE, padding=4)
-        return transform
-
-    t = []
+            #transform.transforms[0] = transforms.RandomCrop(config.DATA.IMG_SIZE, padding=4)
+    
     if resize_im:
         if config.TEST.CROP:
             size = int((256 / 224) * config.DATA.IMG_SIZE)
@@ -161,11 +163,12 @@ def build_transform(is_train, config):
                 transforms.Resize((config.DATA.IMG_SIZE, config.DATA.IMG_SIZE),
                                   interpolation=_pil_interp(config.DATA.INTERPOLATION))
             )
-
+    t.append(transforms.RandomCrop(config.DATA.IMG_SIZE, padding=4))
+    t.append(transforms.Grayscale(num_output_channels=1))  # Keep single channel
     t.append(transforms.ToTensor())
     # Check dimensionality after transformation
     def check_dim(img):
-        print(f"Image shape after transform: {img.shape}")  # Print shape
+        #print(f"Image shape after transform: {img.shape}")  # Print shape
         return img
     
     t.append(check_dim)

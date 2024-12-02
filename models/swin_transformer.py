@@ -52,10 +52,10 @@ def window_partition(x, window_size):
     Returns:
         windows: (num_windows*B, window_size, window_size, C)
     """
-    print(f"Feature map shape before window_partition: {x.shape}, window_size: {window_size}")
+    #print(f"Feature map shape before window_partition: {x.shape}, window_size: {window_size}")
 
     B, H, W, C = x.shape
-    print(f'x is : {x.shape} and height : {H} and weight : {W}')
+    #print(f'x is : {x.shape} and height : {H} and weight : {W}')
     x = x.view(B, H // window_size, window_size, W // window_size, window_size, C)
     windows = x.permute(0, 1, 3, 2, 4, 5).contiguous().view(-1, window_size, window_size, C)
     return windows
@@ -513,15 +513,16 @@ class SwinTransformer(nn.Module):
         fused_window_process (bool, optional): If True, use one kernel to fused window shift & window partition for acceleration, similar for the reversed part. Default: False
     """
 
-    def __init__(self, img_size=224, patch_size=4, in_chans=3, num_classes=1000,
+    def __init__(self, img_size=224, patch_size=4, in_chans=3, num_classes=2,
                  embed_dim=96, depths=[2, 2, 6, 2], num_heads=[3, 6, 12, 24],
                  window_size=7, mlp_ratio=4., qkv_bias=True, qk_scale=None,
                  drop_rate=0., attn_drop_rate=0., drop_path_rate=0.1,
                  norm_layer=nn.LayerNorm, ape=False, patch_norm=True,
                  use_checkpoint=False, fused_window_process=False, **kwargs):
         super().__init__()
-
-        self.num_classes = num_classes
+        self.num_classes=2
+        #self.num_classes = num_classes
+        print(f'num of clasess {self.num_classes}')
         self.num_layers = len(depths)
         self.embed_dim = embed_dim
         self.ape = ape

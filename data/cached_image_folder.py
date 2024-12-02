@@ -185,8 +185,12 @@ def pil_loader(path):
     else:
         with open(path, 'rb') as f:
             img = Image.open(f)
-            return img.convert('RGB')
-    return img.convert('RGB')
+            #return img.convert('RGB')
+    #return img.convert('RGB')
+    # Convert image mode if necessary
+    if img.mode != 'L':  # Keep grayscale if already in 'L'
+        img = img.convert('L')
+    return img
 
 
 def accimage_loader(path):
@@ -233,7 +237,7 @@ class CachedImageFolder(DatasetFolder):
                                                 cache_mode=cache_mode)
         self.imgs = self.samples
         # Print the shape and number of channels
-        print(f"Transformed image shape: {self.imgs[0]}")
+        #print(f"Transformed image shape: {self.imgs[0]}")
 
     def __getitem__(self, index):
         """
@@ -244,6 +248,7 @@ class CachedImageFolder(DatasetFolder):
         """
         path, target = self.samples[index]
         image = self.loader(path)
+        #print(f"Original image mode: {image.mode}")  # It should be 'L' for grayscale
         if self.transform is not None:
             img = self.transform(image)
         else:
