@@ -1,7 +1,6 @@
 train/class1/img123.jpeg	1
 train/class1/img482.jpeg	1
 train/class1/img15.jpeg	1
-train/class1/img134.jpeg	1
 train/class1/img61.jpeg	1
 train/class1/img510.jpeg	1
 train/class1/img38.jpeg	1
