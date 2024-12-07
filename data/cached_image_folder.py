@@ -66,8 +66,50 @@ def make_dataset_with_ann(ann_file, img_prefix, extensions):
             images.append(item)
 
     return images
-
+import numpy as np
 # Create a new dataset with SMOTE-applied data
+def makeBreastnistdata(root_path, prefix):
+  data_path=os.path.join(root_path,'feddata')
+  print(f'data source {data_path}')
+  medmnist_data=os.path.join(data_path,'breastmnist.npz')
+  data=np.load(medmnist_data)
+  np.load(medmnist_data)
+  #test_data=data['test_images']
+  #test_label=data['test_labels']
+  print(prefix)
+  if prefix=='train':
+    train_data=data['train_images']
+    train_label=data['train_labels']
+    print(f'train_data shape:{train_data[0]}')
+
+    return train_data , train_label
+  else:
+    val_data=data['val_images']
+    val_label=data['val_labels']
+    print( f'valid data shape {val_data.shape}')
+    return val_data , val_label
+
+
+class BreastMnistDataset(data.Dataset):
+    def __init__(self,root,prefix, transform=None):
+        data,labels= makeBreastnistdata(root, prefix)
+        self.data=data
+        self.targets = labels
+        #self.targets = np.squeeze(self.targets)
+        self.transform = transform
+
+    def __len__(self):
+        self.filelength = len(self.targets)
+        return self.filelength
+
+    def __getitem__(self, idx):
+        #print(f'data : {self.data[idx]}')
+        if self.transform:
+            image = self.transform(self.data[idx])
+            #print(f'image is {image}')
+            #we add a dimension to our tensor
+            #image = torch.unsqueeze(image, dim=1)
+        return image, self.targets[idx]
 class SMOTEDataset(data.Dataset):
     def __init__(self, features, labels):
         self.features = features
@@ -258,7 +300,7 @@ class CachedImageFolder(DatasetFolder):
         """
         path, target = self.samples[index]
         image = self.loader(path)
-        #print(f"Original image mode: {image.mode}")  # It should be 'L' for grayscale
+        # It should be 'L' for grayscale
         if self.transform is not None:
             img = self.transform(image)
         else:
@@ -268,5 +310,5 @@ class CachedImageFolder(DatasetFolder):
         # Print the shape and number of channels
         #print(f"Transformed image shape: {img.shape}")
         #print(f"Number of channels: {img.shape[0]}")  # img.shape[0] is the number of channels
-
+        print(f"Original image value: {img}")
         return img, target

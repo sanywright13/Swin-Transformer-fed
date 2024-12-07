@@ -6,5 +6,5 @@ MODEL:
     EMBED_DIM:  96 
     DEPTHS: [4,6]
     NUM_HEADS: [ 3, 6, 12, 24 ]
-    WINDOW_SIZE: 1
+    WINDOW_SIZE: 7
     

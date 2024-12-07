@@ -93,7 +93,7 @@ def main(config):
 
     logger.info(f"Creating model:{config.MODEL.TYPE}/{config.MODEL.NAME}")
     model = build_model(config)
-    #logger.info(str(model))
+    #logger.info(str(dataset_train))
 
     n_parameters = sum(p.numel() for p in model.parameters() if p.requires_grad)
     logger.info(f"number of params: {n_parameters}")
@@ -115,17 +115,19 @@ def main(config):
         lr_scheduler = build_scheduler(config, optimizer, len(data_loader_train) // config.TRAIN.ACCUMULATION_STEPS)
     else:
         lr_scheduler = build_scheduler(config, optimizer, len(data_loader_train))
-
+        print(f'schedlur is {lr_scheduler}')
     if config.AUG.MIXUP > 0.:
         # smoothing is handled with mixup label transform
         criterion = SoftTargetCrossEntropy()
     elif config.MODEL.LABEL_SMOOTHING > 0.:
         criterion = LabelSmoothingCrossEntropy(smoothing=config.MODEL.LABEL_SMOOTHING)
     else:
+        print(f'loss cross entropy')
         criterion = torch.nn.CrossEntropyLoss()
+        print(f'loss method is:{criterion}')
 
     max_accuracy = 0.0
-
+    '''
     if config.TRAIN.AUTO_RESUME:
         resume_file = auto_resume_helper(config.OUTPUT)
         if resume_file:
@@ -137,14 +139,14 @@ def main(config):
             logger.info(f'auto resuming from {resume_file}')
         else:
             logger.info(f'no checkpoint found in {config.OUTPUT}, ignoring auto resume')
-
+  
     if config.MODEL.RESUME:
         max_accuracy = load_checkpoint(config, model_without_ddp, optimizer, lr_scheduler, loss_scaler, logger)
         acc1, acc5, loss = validate(config, data_loader_val, model)
         logger.info(f"Accuracy of the network on the {len(dataset_val)} test images: {acc1:.1f}%")
         if config.EVAL_MODE:
             return
-
+    
     if config.MODEL.PRETRAINED and (not config.MODEL.RESUME):
         load_pretrained(config, model_without_ddp, logger)
         acc1, acc5, loss = validate(config, data_loader_val, model)
@@ -153,7 +155,7 @@ def main(config):
     if config.THROUGHPUT_MODE:
         throughput(data_loader_val, model, logger)
         return
-
+    '''
     logger.info("Start training")
     start_time = time.time()
     for epoch in range(config.TRAIN.START_EPOCH, config.TRAIN.EPOCHS):
@@ -166,9 +168,9 @@ def main(config):
         #save_checkpoint(config, epoch, model_without_ddp, max_accuracy, optimizer, lr_scheduler, loss_meter,
                             #logger)
 
-        acc1, acc5, loss, val_metrics = validate(device,config, data_loader_val, model)
-        logger.info(f"Accuracy of the network on the {len(dataset_val)} test images: {acc1:.1f}%")
-        max_accuracy = max(max_accuracy, acc1)
+        acc, loss, val_metrics = validate(device,config, data_loader_val, model)
+        logger.info(f"Accuracy of the network on the {len(dataset_val)} test images: {acc:.3f}%")
+        max_accuracy = max(max_accuracy, acc)
         logger.info(f'Max accuracy: {max_accuracy:.2f}%')
         logger.info(f"Precision: {val_metrics['precision']:.4f}, Recall: {val_metrics['recall']:.4f}, F1: {val_metrics['f1_score']:.4f}")
     total_time = time.time() - start_time
@@ -233,6 +235,7 @@ def train_one_epoch(device,config, model, criterion, data_loader, optimizer, epo
             lr_scheduler.step_update((epoch * num_steps + idx) // config.TRAIN.ACCUMULATION_STEPS)
         loss_scale_value = loss_scaler.state_dict()["scale"]
         '''
+        print(f'train output {outputs.data}')
         #torch.cuda.synchronize()
         
        
@@ -313,10 +316,10 @@ def validate(device,config, data_loader, model):
         # compute output
         #with torch.cuda.amp.autocast(enabled=config.AMP_ENABLE):
         output = model(images)
-        
+        target=np.squeeze(target)
         # measure accuracy and record loss
         loss = criterion(output, target)
-        acc1, acc5 = accuracy(output, target, topk=(1,1))
+        #acc1, acc5 = accuracy(output, target, topk=(1,1))
         acc = (output.argmax(dim=1) == target).float().mean()
 
         #acc1 = reduce_tensor(acc1)
@@ -325,13 +328,15 @@ def validate(device,config, data_loader, model):
 
         loss_meter.update(loss.item(), target.size(0))
         acc1_meter.update(acc.item(), target.size(0))
-        acc5_meter.update(acc5.item(), target.size(0))
+        #acc5_meter.update(acc5.item(), target.size(0))
         #print(f'target : {target}')
         #print(f'output : {output}')
         # Store predictions and true labels
         # Get predictions
         _, preds = torch.max(output.data, 1)
-        print(f'predition are : {preds}')
+        print(f'outputdata : {output.data}')
+
+        print(f'predition are : {preds} and labels are {target}')
         all_preds.append(preds)
         all_labels.append(target)
         # measure elapsed time
@@ -355,7 +360,7 @@ def validate(device,config, data_loader, model):
                 f'Mem {memory_used:.0f}MB')
     '''
     logger.info(f' * Accuracy validation@ {acc1_meter.avg:.3f} ')
-    return acc1_meter.avg, acc5_meter.avg, loss_meter.avg,metrics
+    return acc1_meter.avg, loss_meter.avg,metrics
 
 
 @torch.no_grad()

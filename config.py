@@ -63,7 +63,7 @@ _C.MODEL.RESUME = ''
 # Number of classes, overwritten in data preparation
 _C.MODEL.NUM_CLASSES = 2
 # Dropout rate
-_C.MODEL.DROP_RATE = 0.0
+_C.MODEL.DROP_RATE = 0.1
 # Drop path rate
 _C.MODEL.DROP_PATH_RATE = 0.1
 # Label Smoothing
@@ -150,19 +150,19 @@ _C.MODEL.SIMMIM.NORM_TARGET.PATCH_SIZE = 47
 # -----------------------------------------------------------------------------
 _C.TRAIN = CN()
 _C.TRAIN.START_EPOCH = 0
-_C.TRAIN.EPOCHS = 50
-_C.TRAIN.WARMUP_EPOCHS = 20
-_C.TRAIN.WEIGHT_DECAY =1e-4
-_C.TRAIN.BASE_LR = 0.00013914064388085564
-_C.TRAIN.WARMUP_LR = 0.00013914064388085564
-_C.TRAIN.MIN_LR = 0.00013914064388085564
+_C.TRAIN.EPOCHS = 70
+_C.TRAIN.WARMUP_EPOCHS = 10
+_C.TRAIN.WEIGHT_DECAY =1e-5
+_C.TRAIN.BASE_LR = 1e-4
+_C.TRAIN.WARMUP_LR = 1e-5
+_C.TRAIN.MIN_LR = 1e-5
 # Clip gradient norm
 _C.TRAIN.CLIP_GRAD = 5.0
 # Auto resume from latest checkpoint
-_C.TRAIN.AUTO_RESUME = True
+_C.TRAIN.AUTO_RESUME = False
 # Gradient accumulation steps
 # could be overwritten by command line argument
-_C.TRAIN.ACCUMULATION_STEPS = 1
+_C.TRAIN.ACCUMULATION_STEPS = 0
 # Whether to use gradient checkpointing to save memory
 # could be overwritten by command line argument
 _C.TRAIN.USE_CHECKPOINT = False

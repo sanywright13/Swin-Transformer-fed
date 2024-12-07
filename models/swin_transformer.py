@@ -522,7 +522,7 @@ class SwinTransformer(nn.Module):
         super().__init__()
         self.num_classes=2
         #self.num_classes = num_classes
-        print(f'num of clasess {self.num_classes}')
+        print(f'num of clasess {self.num_classes} and img size {img_size}')
         self.num_layers = len(depths)
         self.embed_dim = embed_dim
         self.ape = ape
