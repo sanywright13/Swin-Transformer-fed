@@ -111,20 +111,21 @@ def main(config):
     #model_without_ddp = model  # No need for DistributedDataParallel
     #loss_scaler = NativeScalerWithGradNormCount()
     loss_scaler = None  # Placeholder since gradient scaling is not needed
-    if config.TRAIN.ACCUMULATION_STEPS > 1:
-        lr_scheduler = build_scheduler(config, optimizer, len(data_loader_train) // config.TRAIN.ACCUMULATION_STEPS)
-    else:
-        lr_scheduler = build_scheduler(config, optimizer, len(data_loader_train))
-        print(f'schedlur is {lr_scheduler}')
-    if config.AUG.MIXUP > 0.:
+    #if config.TRAIN.ACCUMULATION_STEPS > 1:
+        #lr_scheduler = build_scheduler(config, optimizer, len(data_loader_train) // config.TRAIN.ACCUMULATION_STEPS)
+    #else:
+    lr_scheduler = build_scheduler(config, optimizer, len(data_loader_train))
+    print(f'schedlur is {lr_scheduler}')
+    #if config.AUG.MIXUP > 0.:
+        #print(f'loss invalid')
         # smoothing is handled with mixup label transform
-        criterion = SoftTargetCrossEntropy()
-    elif config.MODEL.LABEL_SMOOTHING > 0.:
-        criterion = LabelSmoothingCrossEntropy(smoothing=config.MODEL.LABEL_SMOOTHING)
-    else:
-        print(f'loss cross entropy')
-        criterion = torch.nn.CrossEntropyLoss()
-        print(f'loss method is:{criterion}')
+        #criterion = SoftTargetCrossEntropy()
+    #elif config.MODEL.LABEL_SMOOTHING > 0.:
+        #criterion = LabelSmoothingCrossEntropy(smoothing=config.MODEL.LABEL_SMOOTHING)
+    #else:
+    print(f'loss cross entropy')
+    criterion = torch.nn.CrossEntropyLoss()
+    print(f'loss method is:{criterion}')
 
     max_accuracy = 0.0
     '''
@@ -196,7 +197,8 @@ def train_one_epoch(device,config, model, criterion, data_loader, optimizer, epo
         samples = samples.to(device)
         targets = targets.to(device)
         #targets=targets.view(-1, 1)
-        targets = targets.unsqueeze(dim=-1)
+        #targets = targets.unsqueeze(dim=-1)
+        targets = targets.squeeze()
         #targets = targets.view(-1)  # This will reshape the target tensor to shape (16,)
         #targets = torch.argmax(targets, dim=1)  # Convert to class indices (shape: (16,))
         #print(f'target shape {targets.shape}')
@@ -235,7 +237,7 @@ def train_one_epoch(device,config, model, criterion, data_loader, optimizer, epo
             lr_scheduler.step_update((epoch * num_steps + idx) // config.TRAIN.ACCUMULATION_STEPS)
         loss_scale_value = loss_scaler.state_dict()["scale"]
         '''
-        print(f'train output {outputs.data}')
+        #print(f'train output {outputs.data}')
         #torch.cuda.synchronize()
         
        
@@ -329,14 +331,14 @@ def validate(device,config, data_loader, model):
         loss_meter.update(loss.item(), target.size(0))
         acc1_meter.update(acc.item(), target.size(0))
         #acc5_meter.update(acc5.item(), target.size(0))
-        #print(f'target : {target}')
+        print(f'target : {target}')
         #print(f'output : {output}')
         # Store predictions and true labels
         # Get predictions
         _, preds = torch.max(output.data, 1)
         print(f'outputdata : {output.data}')
 
-        print(f'predition are : {preds} and labels are {target}')
+        #print(f'predition are : {preds} and labels are {target}')
         all_preds.append(preds)
         all_labels.append(target)
         # measure elapsed time

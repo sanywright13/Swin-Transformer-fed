@@ -80,7 +80,7 @@ def makeBreastnistdata(root_path, prefix):
   if prefix=='train':
     train_data=data['train_images']
     train_label=data['train_labels']
-    print(f'train_data shape:{train_data[0]}')
+    #print(f'train_data shape:{train_data[0]}')
 
     return train_data , train_label
   else:
