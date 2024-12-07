@@ -12,9 +12,11 @@ import torch.distributed as dist
 from torchvision import datasets, transforms
 from timm.data.constants import IMAGENET_DEFAULT_MEAN, IMAGENET_DEFAULT_STD
 from timm.data import Mixup
+from imblearn.over_sampling import SMOTE
+
 from timm.data import create_transform
 from torch.utils.data import DataLoader, RandomSampler
-from .cached_image_folder import CachedImageFolder
+from .cached_image_folder import CachedImageFolder , SMOTEDataset
 from .imagenet22k_dataset import IN22KDATASET
 from .samplers import SubsetRandomSampler
 import torchvision.transforms as transforms
@@ -41,6 +43,7 @@ except:
     from timm.data.transforms import _pil_interp
 
 
+
 def build_loader(config):
     config.defrost()
     dataset_train, config.MODEL.NUM_CLASSES = build_dataset(is_train=True, config=config)
@@ -56,7 +59,32 @@ def build_loader(config):
     #global_rank = 0 if not torch.distributed.is_initialized() else torch.distributed.get_rank()
     #print(f"local rank {config.LOCAL_RANK} / global rank {dist.get_rank()} successfully build train dataset")
     dataset_val, _ = build_dataset(is_train=False, config=config)
-    
+    # Assuming dataset_train is built using your existing code
+    # Extract data from dataset_train
+    features = []
+    labels = []
+    for i in range(len(dataset_train)):
+      img, label = dataset_train[i]
+      features.append(img.flatten().numpy())  # Flatten image tensor to 1D array
+      labels.append(label)
+
+    features = np.array(features)
+    labels = np.array(labels)
+
+    # Apply SMOTE
+    smote = SMOTE(sampling_strategy='auto', random_state=42)
+    features_resampled, labels_resampled = smote.fit_resample(features, labels)
+
+    # Reshape features back to original image dimensions
+    features_resampled = features_resampled.reshape(-1, *dataset_train[0][0].shape)
+
+    # Convert back to PyTorch tensors
+    features_resampled = torch.tensor(features_resampled).float()
+    labels_resampled = torch.tensor(labels_resampled).long()
+
+
+    # Build the resampled dataset
+    resampled_dataset_train = SMOTEDataset(features_resampled, labels_resampled)
     #print(f"local rank {config.LOCAL_RANK} / global rank {dist.get_rank()} successfully build val dataset")
 
     #num_tasks = dist.get_world_size()
@@ -64,25 +92,24 @@ def build_loader(config):
   
 
     # Remove distributed training setup and use default sampler
-    sampler_train = torch.utils.data.RandomSampler(dataset_train)
+    #sampler_train = torch.utils.data.RandomSampler(dataset_train)
     
-    sampler_val = torch.utils.data.SequentialSampler(dataset_val)
+    #sampler_val = torch.utils.data.SequentialSampler(dataset_val)
 
     data_loader_train = torch.utils.data.DataLoader(
-        dataset_train, sampler=sampler_train,
+        resampled_dataset_train,
         batch_size=config.DATA.BATCH_SIZE,
         num_workers=config.DATA.NUM_WORKERS,
         pin_memory=config.DATA.PIN_MEMORY,
-        drop_last=True,
+        drop_last=True,shuffle=True
     )
 
     data_loader_val = torch.utils.data.DataLoader(
-        dataset_val, sampler=sampler_val,
+        dataset_val,
         batch_size=config.DATA.BATCH_SIZE,
-        shuffle=False,
         num_workers=config.DATA.NUM_WORKERS,
         pin_memory=config.DATA.PIN_MEMORY,
-        drop_last=False
+        drop_last=False,shuffle=True
     )
 
     # setup mixup / cutmix
@@ -165,7 +192,13 @@ def build_transform(is_train, config):
             )
     t.append(transforms.RandomCrop(config.DATA.IMG_SIZE, padding=4))
     t.append(transforms.Grayscale(num_output_channels=1))  # Keep single channel
-    t.append(transforms.ToTensor())
+    t.append(transforms.RandomHorizontalFlip(p=0.5))
+    t.append(transforms.RandomRotation(degrees=45))
+    t.append(transforms.RandomResizedCrop(size=(224, 224), scale=(0.8, 1.0)))
+    t.append(transforms.ColorJitter(brightness=0.5, contrast=0.5, saturation=0.5, hue=0.2))
+    t.append(transforms.RandomApply([transforms.GaussianBlur(kernel_size=(5, 9), sigma=(0.1, 5))], p=0.5))
+    t.append(transforms.RandomErasing(p=0.5, scale=(0.02, 0.2), ratio=(0.3, 3.3)))
+    t.append(t.append(transforms.ToTensor()))
     # Check dimensionality after transformation
     def check_dim(img):
         #print(f"Image shape after transform: {img.shape}")  # Print shape
@@ -173,5 +206,5 @@ def build_transform(is_train, config):
     
     t.append(check_dim)
     #t.append(transforms.Normalize(IMAGENET_DEFAULT_MEAN, IMAGENET_DEFAULT_STD))
-    #t.append(transforms.Normalize([0.5], [0.5]))  # For grayscale data
+    t.append(transforms.Normalize([0.5], [0.5]))  # For grayscale data
     return transforms.Compose(t)

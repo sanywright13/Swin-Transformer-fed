@@ -28,7 +28,8 @@ from optimizer import build_optimizer
 from logger import create_logger
 from utils import load_checkpoint, load_pretrained, save_checkpoint, NativeScalerWithGradNormCount, auto_resume_helper, \
     reduce_tensor
-
+from sklearn.metrics import precision_score, recall_score, f1_score
+import torch
 # pytorch major version (1.x or 2.x)
 PYTORCH_MAJOR_VERSION = int(torch.__version__.split('.')[0])
 
@@ -165,11 +166,11 @@ def main(config):
         #save_checkpoint(config, epoch, model_without_ddp, max_accuracy, optimizer, lr_scheduler, loss_meter,
                             #logger)
 
-        acc1, acc5, loss = validate(device,config, data_loader_val, model)
+        acc1, acc5, loss, val_metrics = validate(device,config, data_loader_val, model)
         logger.info(f"Accuracy of the network on the {len(dataset_val)} test images: {acc1:.1f}%")
         max_accuracy = max(max_accuracy, acc1)
         logger.info(f'Max accuracy: {max_accuracy:.2f}%')
-
+        logger.info(f"Precision: {val_metrics['precision']:.4f}, Recall: {val_metrics['recall']:.4f}, F1: {val_metrics['f1_score']:.4f}")
     total_time = time.time() - start_time
     total_time_str = str(datetime.timedelta(seconds=int(total_time)))
     logger.info('Training time {}'.format(total_time_str))
@@ -267,7 +268,30 @@ def train_one_epoch(device,config, model, criterion, data_loader, optimizer, epo
     epoch_time = time.time() - start
     logger.info(f"EPOCH {epoch} training takes {datetime.timedelta(seconds=int(epoch_time))}")
 
+def compute_metrics(y_true, y_pred, average='macro'):
+    """
+    Compute precision, recall, and F1-score.
 
+    Args:
+        y_true: Ground truth labels (list or tensor).
+        y_pred: Predicted labels (list or tensor).
+        average: Averaging method for multi-class ('macro', 'micro', or 'weighted').
+
+    Returns:
+        A dictionary with precision, recall, and F1-score.
+    """
+    y_true = y_true.cpu().numpy()
+    y_pred = y_pred.cpu().numpy()
+
+    precision = precision_score(y_true, y_pred, average=average)
+    recall = recall_score(y_true, y_pred, average=average)
+    f1 = f1_score(y_true, y_pred, average=average)
+
+    return {
+        'precision': precision,
+        'recall': recall,
+        'f1_score': f1
+    }
 @torch.no_grad()
 def validate(device,config, data_loader, model):
     criterion = torch.nn.CrossEntropyLoss()
@@ -277,7 +301,8 @@ def validate(device,config, data_loader, model):
     loss_meter = AverageMeter()
     acc1_meter = AverageMeter()
     acc5_meter = AverageMeter()
-
+    all_preds = []
+    all_labels = []
 
     end = time.time()
     for idx, (images, target) in enumerate(data_loader):
@@ -303,11 +328,22 @@ def validate(device,config, data_loader, model):
         acc5_meter.update(acc5.item(), target.size(0))
         #print(f'target : {target}')
         #print(f'output : {output}')
-        
+        # Store predictions and true labels
+        # Get predictions
+        _, preds = torch.max(output.data, 1)
+        print(f'predition are : {preds}')
+        all_preds.append(preds)
+        all_labels.append(target)
         # measure elapsed time
         batch_time.update(time.time() - end)
         end = time.time()
-        '''
+    # Concatenate all predictions and labels
+    all_preds = torch.cat(all_preds)
+    all_labels = torch.cat(all_labels)
+    #compute metrics 
+    metrics = compute_metrics(all_labels, all_preds)
+
+    '''
         if idx % config.PRINT_FREQ == 0:
             memory_used = torch.cuda.max_memory_allocated() / (1024.0 * 1024.0)
             logger.info(
@@ -317,9 +353,9 @@ def validate(device,config, data_loader, model):
                 f'Acc@1 {acc1_meter.val:.3f} ({acc1_meter.avg:.3f})\t'
                 f'Acc@5 {acc5_meter.val:.3f} ({acc5_meter.avg:.3f})\t'
                 f'Mem {memory_used:.0f}MB')
-        '''
+    '''
     logger.info(f' * Accuracy validation@ {acc1_meter.avg:.3f} ')
-    return acc1_meter.avg, acc5_meter.avg, loss_meter.avg
+    return acc1_meter.avg, acc5_meter.avg, loss_meter.avg,metrics
 
 
 @torch.no_grad()

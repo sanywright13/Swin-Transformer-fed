@@ -67,7 +67,17 @@ def make_dataset_with_ann(ann_file, img_prefix, extensions):
 
     return images
 
+# Create a new dataset with SMOTE-applied data
+class SMOTEDataset(data.Dataset):
+    def __init__(self, features, labels):
+        self.features = features
+        self.labels = labels
 
+    def __len__(self):
+        return len(self.features)
+
+    def __getitem__(self, idx):
+        return self.features[idx], self.labels[idx]
 class DatasetFolder(data.Dataset):
     """A generic data loader where the samples are arranged in this way: ::
         root/class_x/xxx.ext
