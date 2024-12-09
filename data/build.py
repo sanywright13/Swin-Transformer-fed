@@ -199,7 +199,7 @@ def build_transform(is_train, config):
     t.append(transforms.RandomHorizontalFlip(p=0.5))
     t.append(transforms.RandomRotation(degrees=45))
     #t.append(transforms.ColorJitter(brightness=0.5, contrast=0.5, saturation=0.5, hue=0.2))
-    #t.append(transforms.RandomApply([transforms.GaussianBlur(kernel_size=(5, 9), sigma=(0.1, 5))], p=0.5))
+    t.append(transforms.RandomApply([transforms.GaussianBlur(kernel_size=(5, 9), sigma=(0.1, 5))], p=0.5))
     
     # Check dimensionality after transformation
     def check_dim(img):

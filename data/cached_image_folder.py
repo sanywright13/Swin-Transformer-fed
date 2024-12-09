@@ -11,8 +11,14 @@ import time
 import torch.distributed as dist
 import torch.utils.data as data
 from PIL import Image
-
+from imblearn.over_sampling import SMOTE
+import torch
+from collections import Counter
 from .zipreader import is_zip_path, ZipReader
+from imblearn.over_sampling import ADASYN
+from imblearn.over_sampling import BorderlineSMOTE
+from imblearn.combine import SMOTEENN
+from imblearn.combine import SMOTETomek
 
 
 def has_file_allowed_extension(filename, extensions):
@@ -70,7 +76,7 @@ import numpy as np
 # Create a new dataset with SMOTE-applied data
 def makeBreastnistdata(root_path, prefix):
   data_path=os.path.join(root_path,'feddata')
-  print(f'data source {data_path}')
+  #print(f'data source {data_path}')
   medmnist_data=os.path.join(data_path,'breastmnist.npz')
   data=np.load(medmnist_data)
   np.load(medmnist_data)
@@ -86,30 +92,45 @@ def makeBreastnistdata(root_path, prefix):
   else:
     val_data=data['val_images']
     val_label=data['val_labels']
-    print( f'valid data shape {val_data.shape}')
+    #print( f'valid data shape {val_data.shape}')
     return val_data , val_label
 
 
 class BreastMnistDataset(data.Dataset):
+    
     def __init__(self,root,prefix, transform=None):
-        data,labels= makeBreastnistdata(root, prefix)
-        self.data=data
-        self.targets = labels
-        #self.targets = np.squeeze(self.targets)
-        self.transform = transform
+      data,labels= makeBreastnistdata(root, prefix)
+      self.data=data
+      self.labels  = labels  
+      if prefix=='train':
+        print(prefix)
+        num_samples, *image_shape = data.shape
+        flattened_data = data.reshape(num_samples, -1)
+        # Apply SMOTE to balance the classes
+        adasyn = ADASYN(sampling_strategy='minority')
 
+        resampled_data, resampled_labels = adasyn.fit_resample(flattened_data, labels) 
+        # Reshape the data back to original image shape
+        self.data = resampled_data.reshape(-1, *image_shape)
+        #print(f'sanaa data shape {self.data.shape}')
+        self.labels = resampled_labels
+        # Print resampled class distribution
+        resampled_counts = Counter(resampled_labels)
+      self.transform = transform
     def __len__(self):
-        self.filelength = len(self.targets)
+        self.filelength = len(self.labels)
         return self.filelength
 
     def __getitem__(self, idx):
         #print(f'data : {self.data[idx]}')
+        image =self.data[idx]
+        label = self.labels[idx]
         if self.transform:
-            image = self.transform(self.data[idx])
-            #print(f'image is {image}')
-            #we add a dimension to our tensor
-            #image = torch.unsqueeze(image, dim=1)
-        return image, self.targets[idx]
+            image = self.transform(image)
+        #print(f"Resampled {image.shape}")
+
+        
+        return image, label
 class SMOTEDataset(data.Dataset):
     def __init__(self, features, labels):
         self.features = features

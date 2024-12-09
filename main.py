@@ -331,12 +331,12 @@ def validate(device,config, data_loader, model):
         loss_meter.update(loss.item(), target.size(0))
         acc1_meter.update(acc.item(), target.size(0))
         #acc5_meter.update(acc5.item(), target.size(0))
-        print(f'target : {target}')
+        #print(f'target : {target}')
         #print(f'output : {output}')
         # Store predictions and true labels
         # Get predictions
         _, preds = torch.max(output.data, 1)
-        print(f'outputdata : {output.data}')
+        #print(f'outputdata : {output.data}')
 
         #print(f'predition are : {preds} and labels are {target}')
         all_preds.append(preds)
