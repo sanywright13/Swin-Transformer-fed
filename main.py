@@ -1,3 +1,4 @@
+
 # --------------------------------------------------------
 # Swin Transformer
 # Copyright (c) 2021 Microsoft
@@ -12,7 +13,7 @@ import random
 import argparse
 import datetime
 import numpy as np
-
+import torch.optim as optim
 import torch
 import torch.backends.cudnn as cudnn
 import torch.distributed as dist
@@ -106,7 +107,10 @@ def main(config):
     model.to(device)
     model_without_ddp = model
 
-    optimizer = build_optimizer(config, model)
+    #optimizer = build_optimizer(config, model)
+    lr=0.00013914064388085564
+    optimizer= optim.AdamW(model.parameters(), lr=lr,
+    weight_decay=1e-4)
     #model = torch.nn.parallel.DistributedDataParallel(model, device_ids=[config.LOCAL_RANK], broadcast_buffers=False)
     #model_without_ddp = model  # No need for DistributedDataParallel
     #loss_scaler = NativeScalerWithGradNormCount()
@@ -114,8 +118,8 @@ def main(config):
     #if config.TRAIN.ACCUMULATION_STEPS > 1:
         #lr_scheduler = build_scheduler(config, optimizer, len(data_loader_train) // config.TRAIN.ACCUMULATION_STEPS)
     #else:
-    lr_scheduler = build_scheduler(config, optimizer, len(data_loader_train))
-    print(f'schedlur is {lr_scheduler}')
+    #lr_scheduler = build_scheduler(config, optimizer, len(data_loader_train))
+    #print(f'schedlur is {lr_scheduler}')
     #if config.AUG.MIXUP > 0.:
         #print(f'loss invalid')
         # smoothing is handled with mixup label transform
@@ -163,14 +167,14 @@ def main(config):
         #data_loader_train.sampler.set_epoch(epoch)
         #logger.info(f'config : {config}, ignoring auto resume')
 
-        train_one_epoch(device,config, model, criterion, data_loader_train, optimizer, epoch, mixup_fn, lr_scheduler,
+        train_one_epoch(device,config, model, criterion, data_loader_train, optimizer, epoch, mixup_fn,
                         loss_scaler)
         #if dist.get_rank() == 0 and (epoch % config.SAVE_FREQ == 0 or epoch == (config.TRAIN.EPOCHS - 1)):
         #save_checkpoint(config, epoch, model_without_ddp, max_accuracy, optimizer, lr_scheduler, loss_meter,
                             #logger)
 
         acc, loss, val_metrics = validate(device,config, data_loader_val, model)
-        logger.info(f"Accuracy of the network on the {len(dataset_val)} test images: {acc:.3f}%")
+        logger.info(f"Accuracy of the network on the {len(dataset_val)}  test images: {acc:.3f}% and epoch is : {epoch}")
         max_accuracy = max(max_accuracy, acc)
         logger.info(f'Max accuracy: {max_accuracy:.2f}%')
         logger.info(f"Precision: {val_metrics['precision']:.4f}, Recall: {val_metrics['recall']:.4f}, F1: {val_metrics['f1_score']:.4f}")
@@ -179,7 +183,7 @@ def main(config):
     logger.info('Training time {}'.format(total_time_str))
 
 
-def train_one_epoch(device,config, model, criterion, data_loader, optimizer, epoch, mixup_fn, lr_scheduler, loss_scaler):
+def train_one_epoch(device,config, model, criterion, data_loader, optimizer, epoch, mixup_fn, loss_scaler):
     model.train()
     optimizer.zero_grad()
     
@@ -237,9 +241,6 @@ def train_one_epoch(device,config, model, criterion, data_loader, optimizer, epo
             lr_scheduler.step_update((epoch * num_steps + idx) // config.TRAIN.ACCUMULATION_STEPS)
         loss_scale_value = loss_scaler.state_dict()["scale"]
         '''
-        #print(f'train output {outputs.data}')
-        #torch.cuda.synchronize()
-        
        
         loss_meter.update(loss.item(), targets.size(0))
         # Backward pass
@@ -256,22 +257,16 @@ def train_one_epoch(device,config, model, criterion, data_loader, optimizer, epo
         batch_time.update(time.time() - end)
         acc = (outputs.argmax(dim=1) == targets).float().mean()
         end = time.time()
-
-        if idx % config.PRINT_FREQ == 0:
-            lr = optimizer.param_groups[0]['lr']
-            wd = optimizer.param_groups[0]['weight_decay']
-            memory_used = torch.cuda.max_memory_allocated() / (1024.0 * 1024.0)
-            etas = batch_time.avg * (num_steps - idx)
-            logger.info(
+        lr = optimizer.param_groups[0]['lr']
+        wd = optimizer.param_groups[0]['weight_decay']
+        '''
+        logger.info(
                 f'Train: [{epoch}/{config.TRAIN.EPOCHS}][{idx}/{num_steps}]\t'
-                f'eta {datetime.timedelta(seconds=int(etas))} lr {lr:.6f}\t wd {wd:.4f}\t'
-                f'time {batch_time.val:.4f} ({batch_time.avg:.4f})\t'
                 f'loss {loss_meter.val:.4f} ({loss_meter.avg:.4f})\t'
-                f'grad_norm {norm_meter.val:.6f} ({norm_meter.avg:.4f})\t'
-                f'loss_scale {scaler_meter.val:.4f} ({scaler_meter.avg:.4f})\t'
                 f'accuracy training {acc:.3f}')
-    epoch_time = time.time() - start
-    logger.info(f"EPOCH {epoch} training takes {datetime.timedelta(seconds=int(epoch_time))}")
+        '''
+    #epoch_time = time.time() - start
+    #logger.info(f"EPOCH {epoch} training takes {datetime.timedelta(seconds=int(epoch_time))}")
 
 def compute_metrics(y_true, y_pred, average='macro'):
     """

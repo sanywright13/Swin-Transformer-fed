@@ -150,7 +150,7 @@ _C.MODEL.SIMMIM.NORM_TARGET.PATCH_SIZE = 47
 # -----------------------------------------------------------------------------
 _C.TRAIN = CN()
 _C.TRAIN.START_EPOCH = 0
-_C.TRAIN.EPOCHS = 20
+_C.TRAIN.EPOCHS = 100
 _C.TRAIN.WARMUP_EPOCHS =5
 _C.TRAIN.WEIGHT_DECAY =1e-5
 _C.TRAIN.BASE_LR = 1e-4

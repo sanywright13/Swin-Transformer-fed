@@ -104,18 +104,18 @@ class BreastMnistDataset(data.Dataset):
       self.labels  = labels  
       if prefix=='train':
         print(prefix)
-        num_samples, *image_shape = data.shape
-        flattened_data = data.reshape(num_samples, -1)
+        #num_samples, *image_shape = data.shape
+        #flattened_data = data.reshape(num_samples, -1)
         # Apply SMOTE to balance the classes
-        adasyn = ADASYN(sampling_strategy='minority')
+        #adasyn = ADASYN(sampling_strategy='minority')
 
-        resampled_data, resampled_labels = adasyn.fit_resample(flattened_data, labels) 
+        #resampled_data, resampled_labels = adasyn.fit_resample(flattened_data, labels) 
         # Reshape the data back to original image shape
-        self.data = resampled_data.reshape(-1, *image_shape)
+        #self.data = resampled_data.reshape(-1, *image_shape)
         #print(f'sanaa data shape {self.data.shape}')
-        self.labels = resampled_labels
+        #self.labels = resampled_labels
         # Print resampled class distribution
-        resampled_counts = Counter(resampled_labels)
+        #resampled_counts = Counter(resampled_labels)
       self.transform = transform
     def __len__(self):
         self.filelength = len(self.labels)
